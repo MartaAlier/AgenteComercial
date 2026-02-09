@@ -4,7 +4,9 @@ import { executeAgent, updateOKRProgress } from "@/lib/ai-engine";
 import prisma from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
-  const { apiKey, agentId, instruction, rounds = 1 } = await request.json();
+  const body = await request.json();
+  const apiKey = body.apiKey || process.env.ANTHROPIC_API_KEY;
+  const { agentId, instruction, rounds = 1 } = body;
 
   if (!apiKey) {
     return new Response(JSON.stringify({ error: "Se requiere la API key de Anthropic" }), {
