@@ -5,6 +5,7 @@ import StatCard from "@/components/ui/StatCard";
 import Card, { CardHeader, CardContent } from "@/components/ui/Card";
 import ProgressBar from "@/components/ui/ProgressBar";
 import Badge from "@/components/ui/Badge";
+import ExecutionPanel from "@/components/dashboard/ExecutionPanel";
 import { timeAgo, translateRole } from "@/lib/utils";
 
 interface Stats {
@@ -19,8 +20,6 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [agents, setAgents] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
-  const [seeding, setSeeding] = useState(false);
-  const [executing, setExecuting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function loadData() {
@@ -38,32 +37,6 @@ export default function DashboardPage() {
       console.error(e);
     }
     setLoading(false);
-  }
-
-  async function seedData() {
-    setSeeding(true);
-    await fetch("/api/seed", { method: "POST" });
-    await loadData();
-    setSeeding(false);
-  }
-
-  async function runAgents() {
-    const key = localStorage.getItem("anthropic_api_key");
-    if (!key) {
-      alert("Configura tu API key de Anthropic en Configuracion antes de ejecutar los agentes.");
-      return;
-    }
-    setExecuting(true);
-    try {
-      await fetch("/api/execute", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: key }),
-      });
-      await loadData();
-    } finally {
-      setExecuting(false);
-    }
   }
 
   useEffect(() => {
@@ -91,61 +64,23 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-fadeIn">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-500 mt-1">Vista general del equipo de ventas</p>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={runAgents}
-            disabled={executing}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
-          >
-            {executing ? (
-              <>
-                <span className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></span>
-                Agentes trabajando...
-              </>
-            ) : (
-              "Ejecutar agentes"
-            )}
-          </button>
-          <button
-            onClick={loadData}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm text-gray-700 transition-colors"
-          >
-            Actualizar
-          </button>
-        </div>
+        <button
+          onClick={loadData}
+          className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm text-gray-700 transition-colors"
+        >
+          Actualizar
+        </button>
       </div>
 
-      {/* Empty state when no leads */}
-      {stats.leads.total === 0 && (
-        <div className="mb-8 p-6 bg-blue-50 border border-blue-200 rounded-xl text-center">
-          <p className="text-3xl mb-2">🚀</p>
-          <h3 className="text-lg font-semibold text-gray-900 mb-1">Pipeline vacio - listo para empezar</h3>
-          <p className="text-sm text-gray-600 mb-4">
-            Configura tu API key en Configuracion y ejecuta los agentes para que empiecen a generar leads reales.
-          </p>
-          <div className="flex gap-3 justify-center">
-            <button
-              onClick={runAgents}
-              disabled={executing}
-              className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium"
-            >
-              {executing ? "Ejecutando..." : "Ejecutar agentes"}
-            </button>
-            <button
-              onClick={seedData}
-              disabled={seeding}
-              className="px-5 py-2 bg-white border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
-            >
-              {seeding ? "Cargando..." : "Cargar datos de prueba"}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Execution Panel - always visible */}
+      <div className="mb-8">
+        <ExecutionPanel onComplete={loadData} />
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -158,7 +93,7 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Valor del Pipeline"
-          value={`€${(stats.leads.pipelineValue / 1000).toFixed(0)}K`}
+          value={stats.leads.pipelineValue > 0 ? `${(stats.leads.pipelineValue / 1000).toFixed(0)}K` : "0"}
           subtitle="Valor estimado total"
           icon={<span className="text-xl">💰</span>}
           color="green"
