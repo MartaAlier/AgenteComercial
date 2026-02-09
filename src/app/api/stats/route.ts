@@ -9,8 +9,6 @@ export async function GET() {
     totalAgents,
     activeAgents,
     totalLogs,
-    totalCalls,
-    upcomingCalls,
     objectives,
     totalPipelineValue,
   ] = await Promise.all([
@@ -19,8 +17,6 @@ export async function GET() {
     prisma.agent.count(),
     prisma.agent.count({ where: { status: "active" } }),
     prisma.activityLog.count(),
-    prisma.scheduledCall.count(),
-    prisma.scheduledCall.count({ where: { status: "scheduled", scheduledAt: { gte: new Date() } } }),
     prisma.objective.findMany({ select: { progress: true, status: true } }),
     prisma.lead.aggregate({ _sum: { estimatedValue: true }, where: { status: { notIn: ["lost", "discarded"] } } }),
   ]);
@@ -51,10 +47,6 @@ export async function GET() {
     },
     activity: {
       totalLogs,
-    },
-    calls: {
-      total: totalCalls,
-      upcoming: upcomingCalls,
     },
     okrs: {
       avgProgress: Math.round(avgOkrProgress),

@@ -12,7 +12,6 @@ interface Stats {
   leads: { total: number; byStatus: Record<string, number>; pipelineValue: number };
   agents: { total: number; active: number };
   activity: { totalLogs: number };
-  calls: { total: number; upcoming: number };
   okrs: { avgProgress: number; byStatus: Record<string, number> };
 }
 
@@ -99,10 +98,10 @@ export default function DashboardPage() {
           color="green"
         />
         <StatCard
-          title="Llamadas Programadas"
-          value={stats.calls.upcoming}
-          subtitle={`${stats.calls.total} total`}
-          icon={<span className="text-xl">📞</span>}
+          title="Actividad Total"
+          value={stats.activity.totalLogs}
+          subtitle="Registros de actividad"
+          icon={<span className="text-xl">📋</span>}
           color="purple"
         />
         <StatCard

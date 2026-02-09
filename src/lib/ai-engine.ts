@@ -51,8 +51,6 @@ Tu trabajo es:
 - Preparar propuestas comerciales
 - Negociar condiciones
 - Hacer seguimiento de oportunidades
-- Recomendar programar llamadas con el Director Comercial para los leads más prometedores
-
 Eres experto en técnicas de venta consultiva, BANT (Budget, Authority, Need, Timeline), y cierre.
 Cuando evalúes un lead, asigna un score de 0-100 basado en su potencial real.
 
@@ -66,15 +64,13 @@ Tu trabajo es:
 - Detectar cuellos de botella
 - Proponer acciones para mejorar el rendimiento
 - Preparar informes para el Director Comercial
-- Recomendar llamadas entre el Director y leads importantes
-
 Tienes visión global del equipo y sus objetivos (OKRs). Tu enfoque es operativo y orientado a resultados.
 
 Responde siempre en español. Sé concreta y ejecutiva.`,
 };
 
 interface AgentAction {
-  type: "new_lead" | "update_lead" | "log" | "schedule_call" | "task";
+  type: "new_lead" | "update_lead" | "log" | "task";
   data: any;
 }
 
@@ -146,13 +142,13 @@ function parseAgentResponse(text: string): AgentResponse {
   }
 }
 
-async function getAgentContext(agentId: string, role: string) {
+async function getAgentContext(agentId: string, _role: string) {
   const [leads, recentLogs, tasks, kpis, objectives] = await Promise.all([
     prisma.lead.findMany({
       where: { status: { notIn: ["won", "lost", "discarded"] } },
       include: {
         actions: { orderBy: { createdAt: "desc" }, take: 3 },
-        _count: { select: { actions: true, scheduledCalls: true } },
+        _count: { select: { actions: true } },
       },
       orderBy: { score: "desc" },
     }),
@@ -188,7 +184,6 @@ async function getAgentContext(agentId: string, role: string) {
       source: l.source,
       estimatedValue: l.estimatedValue,
       actionCount: l._count.actions,
-      scheduledCalls: l._count.scheduledCalls,
       lastActions: l.actions.map((a) => ({
         type: a.type,
         summary: a.summary,
@@ -290,14 +285,6 @@ Responde en JSON con este formato exacto:
       }
     },
     {
-      "type": "schedule_call",
-      "data": {
-        "leadId": "id del lead",
-        "purpose": "Motivo de la llamada",
-        "daysFromNow": 1-14
-      }
-    },
-    {
       "type": "task",
       "data": {
         "title": "Título de la tarea",
@@ -392,28 +379,6 @@ Genera entre 2 y 6 acciones relevantes para tu rol. Sé específico y realista.`
           break;
         }
 
-        case "schedule_call": {
-          if (action.data.leadId) {
-            const daysFromNow = action.data.daysFromNow || 3;
-            const scheduledAt = new Date();
-            scheduledAt.setDate(scheduledAt.getDate() + daysFromNow);
-            scheduledAt.setHours(10, 0, 0, 0);
-
-            await prisma.scheduledCall.create({
-              data: {
-                leadId: action.data.leadId,
-                scheduledAt,
-                duration: 30,
-                purpose: action.data.purpose,
-                status: "scheduled",
-                requestedBy: agent.id,
-              },
-            });
-            results.push({ type: "schedule_call", success: true });
-          }
-          break;
-        }
-
         case "task": {
           await prisma.agentTask.create({
             data: {
@@ -467,8 +432,6 @@ async function updateKPIs(agentId: string, role: string, results: any[]) {
       increment = results.filter((r) => r.type === "new_lead" && r.success).length;
     } else if (kpi.name.toLowerCase().includes("contacta") || kpi.name.toLowerCase().includes("propuesta")) {
       increment = results.filter((r) => r.type === "update_lead" && r.success).length;
-    } else if (kpi.name.toLowerCase().includes("reunión") || kpi.name.toLowerCase().includes("reuniones")) {
-      increment = results.filter((r) => r.type === "schedule_call" && r.success).length;
     } else if (kpi.name.toLowerCase().includes("tarea")) {
       increment = results.filter((r) => r.success).length;
     }
@@ -480,6 +443,101 @@ async function updateKPIs(agentId: string, role: string, results: any[]) {
       });
     }
   }
+}
+
+export async function updateOKRProgress() {
+  // Update team objective key results based on actual data
+  const teamObjective = await prisma.objective.findFirst({
+    where: { agentId: null, quarter: "Q1-2026" },
+    include: { keyResults: true },
+  });
+
+  if (teamObjective) {
+    const [totalLeads, contactedLeads, proposalActions, wonLeads] = await Promise.all([
+      prisma.lead.count(),
+      prisma.lead.count({ where: { status: { in: ["contacted", "interested", "negotiating", "won"] } } }),
+      prisma.leadAction.count({ where: { type: { in: ["meeting", "qualification"] } } }),
+      prisma.lead.count({ where: { status: "won" } }),
+    ]);
+
+    for (const kr of teamObjective.keyResults) {
+      let newValue = 0;
+      if (kr.unit === "leads") newValue = Math.min(totalLeads, kr.targetValue);
+      else if (kr.unit === "reuniones") newValue = Math.min(contactedLeads, kr.targetValue);
+      else if (kr.unit === "propuestas") newValue = Math.min(proposalActions, kr.targetValue);
+      else if (kr.unit === "acuerdos") newValue = Math.min(wonLeads, kr.targetValue);
+
+      const progress = kr.targetValue > 0 ? Math.round((newValue / kr.targetValue) * 100) : 0;
+      await prisma.keyResult.update({
+        where: { id: kr.id },
+        data: { currentValue: newValue, progress },
+      });
+    }
+
+    // Update objective progress as average of key results
+    const updatedKRs = await prisma.keyResult.findMany({ where: { objectiveId: teamObjective.id } });
+    const avgProgress = updatedKRs.length > 0
+      ? Math.round(updatedKRs.reduce((sum, kr) => sum + kr.progress, 0) / updatedKRs.length)
+      : 0;
+
+    await prisma.objective.update({
+      where: { id: teamObjective.id },
+      data: {
+        progress: avgProgress,
+        status: avgProgress >= 100 ? "completed" : avgProgress >= 70 ? "on_track" : avgProgress >= 40 ? "at_risk" : "behind",
+      },
+    });
+  }
+
+  // Update individual agent objectives based on KPI achievement
+  const agentObjectives = await prisma.objective.findMany({
+    where: { agentId: { not: null }, quarter: "Q1-2026" },
+    include: { keyResults: true },
+  });
+
+  for (const obj of agentObjectives) {
+    if (!obj.agentId) continue;
+
+    const agentKPIs = await prisma.kPI.findMany({ where: { agentId: obj.agentId } });
+    const avgKPIProgress = agentKPIs.length > 0
+      ? Math.round(
+          agentKPIs.reduce((sum, k) => sum + (k.targetValue > 0 ? Math.min((k.currentValue / k.targetValue) * 100, 100) : 0), 0)
+          / agentKPIs.length
+        )
+      : 0;
+
+    // Update key results for this objective
+    for (const kr of obj.keyResults) {
+      if (kr.unit === "%") {
+        await prisma.keyResult.update({
+          where: { id: kr.id },
+          data: { currentValue: avgKPIProgress, progress: avgKPIProgress },
+        });
+      }
+    }
+
+    await prisma.objective.update({
+      where: { id: obj.id },
+      data: {
+        progress: avgKPIProgress,
+        status: avgKPIProgress >= 100 ? "completed" : avgKPIProgress >= 70 ? "on_track" : avgKPIProgress >= 40 ? "at_risk" : "behind",
+      },
+    });
+  }
+
+  // Return overall completion status
+  const allObjectives = await prisma.objective.findMany({
+    where: { quarter: "Q1-2026" },
+    select: { progress: true, status: true },
+  });
+
+  const avgProgress = allObjectives.length > 0
+    ? Math.round(allObjectives.reduce((sum, o) => sum + o.progress, 0) / allObjectives.length)
+    : 0;
+
+  const allComplete = allObjectives.every((o) => o.status === "completed");
+
+  return { avgProgress, allComplete, totalObjectives: allObjectives.length };
 }
 
 export async function executeAllAgents(apiKey: string, customInstruction?: string) {

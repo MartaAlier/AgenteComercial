@@ -8,7 +8,6 @@ const NAV_ITEMS = [
   { href: "/agents", label: "Agentes", icon: "🤖" },
   { href: "/leads", label: "Leads", icon: "🎯" },
   { href: "/okrs", label: "OKRs & KPIs", icon: "📈" },
-  { href: "/calls", label: "Llamadas", icon: "📞" },
   { href: "/logs", label: "Registro de Actividad", icon: "📋" },
   { href: "/settings", label: "Configuracion", icon: "⚙️" },
 ];

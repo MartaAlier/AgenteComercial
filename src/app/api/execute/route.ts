@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextRequest } from "next/server";
-import { executeAgent } from "@/lib/ai-engine";
+import { executeAgent, updateOKRProgress } from "@/lib/ai-engine";
 import prisma from "@/lib/prisma";
 
 export async function POST(request: NextRequest) {
@@ -75,20 +75,21 @@ export async function POST(request: NextRequest) {
             }
           }
 
-          send({ type: "round_end", round });
+          // Update OKR progress after each round
+          const okrStatus = await updateOKRProgress();
+          send({ type: "round_end", round, okrProgress: okrStatus.avgProgress, okrsComplete: okrStatus.allComplete });
         }
 
         // Get final stats
-        const [leadCount, callCount, logCount] = await Promise.all([
+        const [leadCount, logCount] = await Promise.all([
           prisma.lead.count(),
-          prisma.scheduledCall.count({ where: { status: "scheduled" } }),
           prisma.activityLog.count(),
         ]);
 
         send({
           type: "complete",
           progress: 100,
-          stats: { leads: leadCount, calls: callCount, logs: logCount },
+          stats: { leads: leadCount, logs: logCount },
         });
       } catch (err) {
         send({ type: "error", error: String(err) });
