@@ -20,6 +20,7 @@ export default function DashboardPage() {
   const [agents, setAgents] = useState<any[]>([]);
   const [logs, setLogs] = useState<any[]>([]);
   const [seeding, setSeeding] = useState(false);
+  const [executing, setExecuting] = useState(false);
   const [loading, setLoading] = useState(true);
 
   async function loadData() {
@@ -44,6 +45,25 @@ export default function DashboardPage() {
     await fetch("/api/seed", { method: "POST" });
     await loadData();
     setSeeding(false);
+  }
+
+  async function runAgents() {
+    const key = localStorage.getItem("anthropic_api_key");
+    if (!key) {
+      alert("Configura tu API key de Anthropic en Configuracion antes de ejecutar los agentes.");
+      return;
+    }
+    setExecuting(true);
+    try {
+      await fetch("/api/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: key }),
+      });
+      await loadData();
+    } finally {
+      setExecuting(false);
+    }
   }
 
   useEffect(() => {
@@ -87,12 +107,28 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-500 mt-1">Vista general del equipo de ventas</p>
         </div>
-        <button
-          onClick={loadData}
-          className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm text-gray-700 transition-colors"
-        >
-          Actualizar
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={runAgents}
+            disabled={executing}
+            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+          >
+            {executing ? (
+              <>
+                <span className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></span>
+                Agentes trabajando...
+              </>
+            ) : (
+              "Ejecutar agentes"
+            )}
+          </button>
+          <button
+            onClick={loadData}
+            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm text-gray-700 transition-colors"
+          >
+            Actualizar
+          </button>
+        </div>
       </div>
 
       {/* Stats Grid */}
