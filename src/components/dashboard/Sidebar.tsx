@@ -4,11 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: "📊" },
-  { href: "/agents", label: "Agentes", icon: "🤖" },
-  { href: "/leads", label: "Leads", icon: "🎯" },
-  { href: "/okrs", label: "OKRs & KPIs", icon: "📈" },
-  { href: "/logs", label: "Registro de Actividad", icon: "📋" },
+  { href: "/", label: "Buscar Empresas", icon: "🔍" },
+  { href: "/logs", label: "Actividad", icon: "📋" },
   { href: "/settings", label: "Configuracion", icon: "⚙️" },
 ];
 
@@ -19,7 +16,7 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 h-full w-64 bg-slate-800 text-white flex flex-col z-50">
       <div className="p-6 border-b border-slate-700">
         <h1 className="text-xl font-bold">AgenteComercial</h1>
-        <p className="text-slate-400 text-xs mt-1">Equipo de Ventas - Placas de Yeso</p>
+        <p className="text-slate-400 text-xs mt-1">Buscador de Leads - Placas de Yeso</p>
       </div>
 
       <nav className="flex-1 py-4 overflow-y-auto">

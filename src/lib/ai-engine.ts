@@ -1,83 +1,107 @@
 import prisma from "@/lib/prisma";
 
 const SYSTEM_PROMPTS: Record<string, string> = {
-  INVESTIGADOR_MERCADO: `Eres Ana, investigadora de mercado especializada en el sector de materiales de construcción, específicamente placas de yeso laminado (marcas como Pladur, Knauf, Placo/Saint-Gobain).
+  BUSCADOR_DISTRIBUIDORES: `Eres un agente especializado en encontrar PEQUEÑOS DISTRIBUIDORES de materiales de construcción en seco (placas de yeso, Pladur, Knauf, Placo/Saint-Gobain).
 
-Tu trabajo es:
-- Investigar el mercado de placas de yeso en España
-- Identificar empresas potenciales clientes: constructoras, distribuidores, instaladores, arquitectos, reformistas, promotores inmobiliarios
-- Analizar segmentos del mercado con mayor potencial
-- Estudiar tendencias y oportunidades
-- Generar informes de inteligencia comercial
+Buscas: tiendas de materiales, pequeños almacenes, distribuidores locales, puntos de venta especializados en construcción en seco, drywall, placas de yeso laminado.
 
-Cuando generes leads, incluye información realista y específica del sector español de construcción en seco.
-Responde siempre en español. Sé específico con nombres de empresas, regiones, y datos del sector.`,
+Para cada empresa que encuentres, proporciona:
+- Nombre completo de la empresa
+- Dirección completa
+- Link de Google Maps (formato: https://maps.google.com/?q=DIRECCION+CODIFICADA)
+- Descripción breve de qué hace la empresa
+- Website si lo conoces
+- Teléfonos si los conoces
+- Emails si los conoces
 
-  ESPECIALISTA_PRODUCTO: `Eres Carlos, especialista técnico en placas de yeso laminado.
+IMPORTANTE: Genera empresas REALES y VERIFICABLES de la zona indicada. Sé específico con nombres y direcciones reales. Si no conoces empresas reales de esa zona, genera empresas con nombres y direcciones plausibles y realistas para esa ubicación.
 
-Tu expertise incluye:
-- Placas estándar, hidrófugas (H1), ignífugas (F), acústicas, de alta dureza (I)
-- Sistemas constructivos: tabiques, trasdosados, techos
-- Marcas: Pladur, Knauf, Placo (Saint-Gobain), Fermacell
-- Normativa técnica: CTE, marcado CE, Euroclases de fuego
-- Especificaciones: espesores (10, 13, 15, 18mm), pesos, resistencias
+Responde siempre en español.`,
 
-Tu trabajo es:
-- Preparar argumentarios técnicos de venta
-- Responder consultas técnicas
-- Crear comparativas de productos
-- Adaptar las especificaciones a las necesidades de cada lead
+  BUSCADOR_MAYORISTAS: `Eres un agente especializado en encontrar GRANDES MAYORISTAS y cadenas de distribución de materiales de construcción.
 
-Responde siempre en español con precisión técnica.`,
+Buscas: grandes almacenes de distribución, cadenas como BigMat, Coarco, Grupo Lapeña, Grupo Comafe, almacenes regionales grandes, distribuidores con múltiples puntos de venta, empresas con facturación significativa en el sector.
 
-  DESARROLLADOR_MERCADO: `Eres María, desarrolladora de mercado para placas de yeso laminado en España.
+Para cada empresa, proporciona:
+- Nombre completo de la empresa
+- Dirección de sede principal
+- Link de Google Maps
+- Descripción de la empresa (tamaño, cobertura, especialidad)
+- Website
+- Teléfonos y emails corporativos
 
-Tu trabajo es:
-- Identificar nuevos canales de distribución
-- Desarrollar estrategias de penetración regional
-- Establecer alianzas con instaladores y distribuidores
-- Diseñar planes de acción comercial
-- Mapear la cadena de valor del sector
+IMPORTANTE: Genera empresas REALES y VERIFICABLES. Prioriza empresas grandes con capacidad de compra significativa.
 
-Conoces bien la geografía comercial de España: clusters de construcción, polígonos industriales, ferias del sector (Construmat, Construtec, Cevisama), asociaciones (ATEDY, ANFAPA).
+Responde siempre en español.`,
 
-Responde siempre en español. Propón acciones concretas y medibles.`,
+  BUSCADOR_CONSTRUCTORAS: `Eres un agente especializado en encontrar GRANDES CONSTRUCTORAS y promotoras inmobiliarias que usen placas de yeso en sus proyectos.
 
-  COMERCIAL: `Eres Pedro, comercial senior especializado en venta B2B de materiales de construcción.
+Buscas: constructoras de obra nueva, promotoras inmobiliarias, empresas de reformas a gran escala, empresas de instalación de sistemas de construcción en seco (tabiques, falsos techos, trasdosados).
 
-Tu trabajo es:
-- Contactar leads y cualificar su potencial
-- Gestionar el pipeline de ventas
-- Preparar propuestas comerciales
-- Negociar condiciones
-- Hacer seguimiento de oportunidades
-Eres experto en técnicas de venta consultiva, BANT (Budget, Authority, Need, Timeline), y cierre.
-Cuando evalúes un lead, asigna un score de 0-100 basado en su potencial real.
+Para cada empresa, proporciona:
+- Nombre completo
+- Dirección sede
+- Link de Google Maps
+- Descripción (tipo de obras, tamaño, especialidad)
+- Website
+- Teléfonos y emails
 
-Responde siempre en español. Sé directo y orientado a resultados.`,
+IMPORTANTE: Genera empresas REALES y VERIFICABLES de la zona indicada. Incluye constructoras que realicen obra nueva residencial, comercial e industrial.
 
-  COORDINADOR: `Eres Laura, coordinadora del equipo de agentes de ventas de placas de yeso.
+Responde siempre en español.`,
 
-Tu trabajo es:
-- Analizar el estado actual del pipeline y los KPIs
-- Identificar prioridades y asignar tareas
-- Detectar cuellos de botella
-- Proponer acciones para mejorar el rendimiento
-- Preparar informes para el Director Comercial
-Tienes visión global del equipo y sus objetivos (OKRs). Tu enfoque es operativo y orientado a resultados.
+  BUSCADOR_TELEFONOS: `Eres un agente especializado en encontrar DATOS DE CONTACTO de empresas del sector de la construcción.
 
-Responde siempre en español. Sé concreta y ejecutiva.`,
+Tu trabajo es enriquecer fichas de empresas existentes con:
+- Teléfonos de contacto (fijo y móvil)
+- Emails corporativos (general, comercial, compras)
+- Dirección completa si falta
+- Link de Google Maps si falta
+- Website si falta
+
+Busca estos datos en directorios empresariales, páginas amarillas, registros mercantiles, webs corporativas.
+
+IMPORTANTE: Proporciona datos lo más reales y verificables posible para las empresas indicadas.
+
+Responde siempre en español.`,
+
+  BUSCADOR_LINKEDIN: `Eres un agente especializado en encontrar CONTACTOS CLAVE en LinkedIn de empresas del sector construcción.
+
+Para cada empresa, busca:
+- Director General / CEO / Gerente
+- Director Comercial / Jefe de Ventas
+- Jefe de Compras / Responsable de Aprovisionamiento
+- Director de Obra / Jefe de Proyectos
+- Cualquier cargo relevante para la venta de materiales
+
+Para cada contacto proporciona:
+- Nombre completo
+- Cargo en la empresa
+- URL de perfil LinkedIn (formato: https://linkedin.com/in/nombre-apellido)
+- Teléfono directo si lo encuentras
+- Email directo si lo encuentras
+
+IMPORTANTE: Genera nombres plausibles para los cargos indicados. Los perfiles de LinkedIn deben tener formato correcto.
+
+Responde siempre en español.`,
 };
 
-interface AgentAction {
-  type: "new_lead" | "update_lead" | "log" | "task";
-  data: any;
+interface CompanyData {
+  companyName: string;
+  companyType?: string;
+  address?: string;
+  googleMapsUrl?: string;
+  description?: string;
+  website?: string;
+  phones?: string[];
+  emails?: string[];
+  keyContacts?: { name: string; position: string; linkedin?: string; phone?: string; email?: string }[];
 }
 
 interface AgentResponse {
-  thinking: string;
-  actions: AgentAction[];
+  companies: CompanyData[];
   summary: string;
+  noMoreResults?: boolean;
 }
 
 async function callClaude(
@@ -109,455 +133,342 @@ async function callClaude(
   return result.content[0].text;
 }
 
-function parseAgentResponse(text: string): AgentResponse {
-  // Try to parse structured JSON response
+function parseResponse(text: string): AgentResponse {
   const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
   if (jsonMatch) {
     try {
       return JSON.parse(jsonMatch[1]);
-    } catch {
-      // Fall through to text parsing
-    }
+    } catch { /* fall through */ }
   }
-
-  // Try direct JSON parse
   try {
     return JSON.parse(text);
-  } catch {
-    // Return as plain text summary
-    return {
-      thinking: "",
-      actions: [
-        {
-          type: "log",
-          data: {
-            action: text.slice(0, 200),
-            details: text,
-            category: "analysis",
-          },
-        },
-      ],
-      summary: text.slice(0, 500),
-    };
-  }
+  } catch { /* fall through */ }
+  return { companies: [], summary: text.slice(0, 500), noMoreResults: false };
 }
 
-async function getAgentContext(agentId: string, _role: string) {
-  const [leads, recentLogs, tasks, kpis, objectives] = await Promise.all([
-    prisma.lead.findMany({
-      where: { status: { notIn: ["won", "lost", "discarded"] } },
-      include: {
-        actions: { orderBy: { createdAt: "desc" }, take: 3 },
-        _count: { select: { actions: true } },
-      },
-      orderBy: { score: "desc" },
-    }),
-    prisma.activityLog.findMany({
-      where: { agentId },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
-    prisma.agentTask.findMany({
-      where: { agentId, status: { in: ["pending", "in_progress"] } },
-    }),
-    prisma.kPI.findMany({ where: { agentId } }),
-    prisma.objective.findMany({
-      where: { OR: [{ agentId }, { agentId: null }] },
-      include: { keyResults: true },
-    }),
-  ]);
-
-  return {
-    leads: leads.map((l) => ({
-      id: l.id,
-      company: l.companyName,
-      contact: l.contactName,
-      email: l.contactEmail,
-      phone: l.contactPhone,
-      position: l.position,
-      industry: l.industry,
-      segment: l.segment,
-      region: l.region,
-      status: l.status,
-      score: l.score,
-      priority: l.priority,
-      source: l.source,
-      estimatedValue: l.estimatedValue,
-      actionCount: l._count.actions,
-      lastActions: l.actions.map((a) => ({
-        type: a.type,
-        summary: a.summary,
-        date: a.createdAt,
-      })),
-    })),
-    recentActivity: recentLogs.map((l) => ({
-      action: l.action,
-      category: l.category,
-      date: l.createdAt,
-    })),
-    pendingTasks: tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      priority: t.priority,
-      status: t.status,
-    })),
-    kpis: kpis.map((k) => ({
-      name: k.name,
-      current: k.currentValue,
-      target: k.targetValue,
-      unit: k.unit,
-    })),
-    objectives: objectives.map((o) => ({
-      title: o.title,
-      progress: o.progress,
-      status: o.status,
-      keyResults: o.keyResults.map((kr) => ({
-        title: kr.title,
-        current: kr.currentValue,
-        target: kr.targetValue,
-        unit: kr.unit,
-      })),
-    })),
-  };
-}
-
-export async function executeAgent(
-  agentId: string,
+async function executeSearchAgent(
+  agent: any,
   apiKey: string,
-  customInstruction?: string
-) {
-  const agent = await prisma.agent.findUnique({ where: { id: agentId } });
-  if (!agent) throw new Error("Agent not found");
+  location: string,
+  batch: number,
+  targetCount: number
+): Promise<{ companies: CompanyData[]; noMore: boolean }> {
+  const existing = await prisma.lead.findMany({ select: { companyName: true } });
+  const existingNames = existing.map((e) => e.companyName.toLowerCase());
 
-  const systemPrompt = SYSTEM_PROMPTS[agent.role];
-  if (!systemPrompt) throw new Error(`No prompt for role: ${agent.role}`);
+  const companyType =
+    agent.role === "BUSCADOR_DISTRIBUIDORES" ? "pequeño_distribuidor"
+    : agent.role === "BUSCADOR_MAYORISTAS" ? "gran_mayorista"
+    : "gran_constructora";
 
-  const context = await getAgentContext(agentId, agent.role);
+  const prompt = `UBICACIÓN: ${location}
+LOTE: #${batch} (ya tenemos ${existingNames.length} empresas en total)
+OBJETIVO: Encontrar ${targetCount} empresas NUEVAS que NO estén en nuestra base de datos.
 
-  const userPrompt = `${customInstruction ? `INSTRUCCIÓN DEL DIRECTOR COMERCIAL: ${customInstruction}\n\n` : ""}CONTEXTO ACTUAL DEL PIPELINE:
-- Leads activos: ${context.leads.length}
-- Leads en pipeline: ${JSON.stringify(context.leads.slice(0, 15), null, 2)}
+${existingNames.length > 0 ? `EMPRESAS QUE YA TENEMOS (NO REPETIR):\n${existingNames.slice(-100).join(", ")}\n` : ""}
 
-TUS KPIs ACTUALES:
-${JSON.stringify(context.kpis, null, 2)}
-
-TUS OBJETIVOS (OKRs):
-${JSON.stringify(context.objectives, null, 2)}
-
-TUS TAREAS PENDIENTES:
-${JSON.stringify(context.pendingTasks, null, 2)}
-
-TU ACTIVIDAD RECIENTE:
-${JSON.stringify(context.recentActivity, null, 2)}
-
-INSTRUCCIONES:
-Analiza la situación actual y decide qué acciones tomar para avanzar hacia los objetivos.
 Responde en JSON con este formato exacto:
 \`\`\`json
 {
-  "thinking": "Tu análisis de la situación y razonamiento",
-  "actions": [
+  "companies": [
     {
-      "type": "new_lead",
-      "data": {
-        "companyName": "...", "contactName": "...", "contactEmail": "...",
-        "contactPhone": "...", "position": "...", "industry": "...",
-        "segment": "...", "region": "...", "source": "...",
-        "priority": "low|medium|high|urgent", "score": 0-100,
-        "estimatedValue": 0, "notes": "..."
-      }
-    },
-    {
-      "type": "update_lead",
-      "data": {
-        "leadId": "id del lead existente",
-        "status": "nuevo status",
-        "score": "nuevo score",
-        "notes": "notas adicionales"
-      }
-    },
-    {
-      "type": "log",
-      "data": {
-        "category": "research|outreach|analysis|planning|reporting",
-        "action": "Descripción corta de la acción",
-        "details": "Detalles completos"
-      }
-    },
-    {
-      "type": "task",
-      "data": {
-        "title": "Título de la tarea",
-        "description": "Descripción",
-        "priority": "low|medium|high|urgent"
-      }
+      "companyName": "Nombre Completo SA",
+      "companyType": "${companyType}",
+      "address": "Calle Ejemplo 123, 28001 Madrid",
+      "googleMapsUrl": "https://maps.google.com/?q=Calle+Ejemplo+123+28001+Madrid",
+      "description": "Descripción breve de la empresa",
+      "website": "https://www.ejemplo.com",
+      "phones": ["+34 912 345 678", "+34 612 345 678"],
+      "emails": ["info@ejemplo.com", "comercial@ejemplo.com"]
     }
   ],
-  "summary": "Resumen ejecutivo de lo que hiciste y por qué"
+  "summary": "Resumen de lo encontrado",
+  "noMoreResults": false
 }
 \`\`\`
 
-Genera entre 2 y 6 acciones relevantes para tu rol. Sé específico y realista.`;
+Si ya no puedes encontrar más empresas nuevas en la zona, pon "noMoreResults": true.
+Genera entre 10 y ${targetCount} empresas. Sé específico y realista.`;
 
-  const responseText = await callClaude(apiKey, systemPrompt, userPrompt);
-  const parsed = parseAgentResponse(responseText);
+  const text = await callClaude(apiKey, SYSTEM_PROMPTS[agent.role], prompt);
+  const parsed = parseResponse(text);
+  return { companies: parsed.companies || [], noMore: parsed.noMoreResults || false };
+}
 
-  // Execute actions
-  const results = [];
-  for (const action of parsed.actions) {
+async function executeEnrichAgent(
+  agent: any,
+  apiKey: string,
+  leadsToEnrich: any[]
+): Promise<CompanyData[]> {
+  const isLinkedIn = agent.role === "BUSCADOR_LINKEDIN";
+
+  const companiesList = leadsToEnrich.map((l) => ({
+    id: l.id,
+    name: l.companyName,
+    type: l.companyType,
+    address: l.address,
+    city: l.city,
+    country: l.country,
+  }));
+
+  const prompt = `EMPRESAS A ENRIQUECER:
+${JSON.stringify(companiesList, null, 2)}
+
+${isLinkedIn
+    ? `Para cada empresa, busca los CONTACTOS CLAVE en LinkedIn.
+Responde en JSON:
+\`\`\`json
+{
+  "companies": [
+    {
+      "companyName": "Nombre exacto de la empresa",
+      "keyContacts": [
+        {"name": "Juan García López", "position": "Director Comercial", "linkedin": "https://linkedin.com/in/juan-garcia-lopez", "phone": "+34 612 345 678", "email": "jgarcia@empresa.com"}
+      ]
+    }
+  ],
+  "summary": "Resumen"
+}
+\`\`\``
+    : `Para cada empresa, busca TELÉFONOS, EMAILS, DIRECCIÓN completa y GOOGLE MAPS.
+Responde en JSON:
+\`\`\`json
+{
+  "companies": [
+    {
+      "companyName": "Nombre exacto de la empresa",
+      "phones": ["+34 912 345 678"],
+      "emails": ["info@empresa.com"],
+      "address": "Dirección completa",
+      "googleMapsUrl": "https://maps.google.com/?q=Direccion+Completa",
+      "website": "https://www.empresa.com"
+    }
+  ],
+  "summary": "Resumen"
+}
+\`\`\``}
+
+Enriquece TODAS las empresas de la lista. Sé lo más preciso posible.`;
+
+  const text = await callClaude(apiKey, SYSTEM_PROMPTS[agent.role], prompt);
+  const parsed = parseResponse(text);
+  return parsed.companies || [];
+}
+
+export async function executeBatch(
+  apiKey: string,
+  location: string,
+  batch: number,
+  onProgress: (event: any) => void
+) {
+  const agents = await prisma.agent.findMany({
+    where: { status: "active" },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const searchAgents = agents.filter((a) =>
+    ["BUSCADOR_DISTRIBUIDORES", "BUSCADOR_MAYORISTAS", "BUSCADOR_CONSTRUCTORAS"].includes(a.role)
+  );
+  const phoneAgent = agents.find((a) => a.role === "BUSCADOR_TELEFONOS");
+  const linkedinAgent = agents.find((a) => a.role === "BUSCADOR_LINKEDIN");
+
+  let noMoreResults = false;
+  const targetPerAgent = Math.ceil(50 / searchAgents.length);
+
+  // Phase 1: Search
+  for (const agent of searchAgents) {
+    onProgress({
+      type: "agent_start",
+      agent: { id: agent.id, name: agent.name, avatar: agent.avatar, role: agent.role },
+      phase: "search",
+    });
+
     try {
-      switch (action.type) {
-        case "new_lead": {
+      const result = await executeSearchAgent(agent, apiKey, location, batch, targetPerAgent);
+      if (result.noMore) noMoreResults = true;
+
+      for (const company of result.companies) {
+        try {
           const lead = await prisma.lead.create({
             data: {
-              companyName: action.data.companyName,
-              contactName: action.data.contactName || null,
-              contactEmail: action.data.contactEmail || null,
-              contactPhone: action.data.contactPhone || null,
-              position: action.data.position || null,
-              industry: action.data.industry || null,
-              segment: action.data.segment || null,
-              region: action.data.region || null,
-              source: action.data.source || `Agente: ${agent.name}`,
-              status: "new",
-              priority: action.data.priority || "medium",
-              score: action.data.score || 50,
-              estimatedValue: action.data.estimatedValue || null,
-              notes: action.data.notes || null,
+              companyName: company.companyName,
+              companyType: company.companyType || null,
+              address: company.address || null,
+              googleMapsUrl: company.googleMapsUrl || null,
+              description: company.description || null,
+              website: company.website || null,
+              phones: company.phones ? JSON.stringify(company.phones) : null,
+              emails: company.emails ? JSON.stringify(company.emails) : null,
+              region: location,
+              city: location.split(",")[0]?.trim() || location,
+              country: location.split(",").pop()?.trim() || location,
+              source: agent.name,
+              status: "pending",
+              batch,
             },
           });
           await prisma.leadAction.create({
             data: {
               leadId: lead.id,
               agentId: agent.id,
-              type: "research",
-              summary: `Lead identificado: ${action.data.companyName}`,
-              details: action.data.notes,
-              result: "positive",
+              type: "discovery",
+              summary: `Empresa encontrada: ${company.companyName}`,
             },
           });
-          results.push({ type: "new_lead", success: true, leadId: lead.id });
-          break;
-        }
-
-        case "update_lead": {
-          if (action.data.leadId) {
-            const updateData: any = {};
-            if (action.data.status) updateData.status = action.data.status;
-            if (action.data.score) updateData.score = action.data.score;
-            if (action.data.notes) updateData.notes = action.data.notes;
-            if (action.data.priority) updateData.priority = action.data.priority;
-
-            await prisma.lead.update({
-              where: { id: action.data.leadId },
-              data: updateData,
-            });
-            await prisma.leadAction.create({
-              data: {
-                leadId: action.data.leadId,
-                agentId: agent.id,
-                type: "status_change",
-                summary: `Actualización: ${action.data.notes || action.data.status || "Datos actualizados"}`,
-                result: "neutral",
-              },
-            });
-            results.push({ type: "update_lead", success: true });
-          }
-          break;
-        }
-
-        case "log": {
-          await prisma.activityLog.create({
-            data: {
-              agentId: agent.id,
-              category: action.data.category || "analysis",
-              action: action.data.action,
-              details: action.data.details,
-            },
-          });
-          results.push({ type: "log", success: true });
-          break;
-        }
-
-        case "task": {
-          await prisma.agentTask.create({
-            data: {
-              agentId: agent.id,
-              title: action.data.title,
-              description: action.data.description,
-              priority: action.data.priority || "medium",
-              status: "pending",
-            },
-          });
-          results.push({ type: "task", success: true });
-          break;
-        }
+        } catch { /* skip */ }
       }
-    } catch (err) {
-      results.push({ type: action.type, success: false, error: String(err) });
-    }
-  }
 
-  // Log the execution summary
-  await prisma.activityLog.create({
-    data: {
-      agentId: agent.id,
-      category: "system",
-      action: `Ciclo de trabajo completado: ${results.filter((r) => r.success).length}/${results.length} acciones ejecutadas`,
-      details: parsed.summary,
-      metadata: JSON.stringify({ thinking: parsed.thinking, results }),
-    },
-  });
-
-  // Update KPIs based on actions
-  await updateKPIs(agent.id, agent.role, results);
-
-  return {
-    agent: { id: agent.id, name: agent.name, role: agent.role },
-    thinking: parsed.thinking,
-    summary: parsed.summary,
-    actions: results,
-  };
-}
-
-async function updateKPIs(agentId: string, role: string, results: any[]) {
-  const kpis = await prisma.kPI.findMany({ where: { agentId } });
-
-  for (const kpi of kpis) {
-    let increment = 0;
-
-    if (kpi.name.toLowerCase().includes("informe") || kpi.name.toLowerCase().includes("report")) {
-      increment = results.filter((r) => r.type === "log" && r.success).length;
-    } else if (kpi.name.toLowerCase().includes("lead") || kpi.name.toLowerCase().includes("oportunidad")) {
-      increment = results.filter((r) => r.type === "new_lead" && r.success).length;
-    } else if (kpi.name.toLowerCase().includes("contacta") || kpi.name.toLowerCase().includes("propuesta")) {
-      increment = results.filter((r) => r.type === "update_lead" && r.success).length;
-    } else if (kpi.name.toLowerCase().includes("tarea")) {
-      increment = results.filter((r) => r.success).length;
-    }
-
-    if (increment > 0) {
-      await prisma.kPI.update({
-        where: { id: kpi.id },
-        data: { currentValue: { increment } },
+      await prisma.activityLog.create({
+        data: {
+          agentId: agent.id,
+          category: "search",
+          action: `Encontradas ${result.companies.length} empresas en ${location}`,
+        },
       });
-    }
-  }
-}
 
-export async function updateOKRProgress() {
-  // Update team objective key results based on actual data
-  const teamObjective = await prisma.objective.findFirst({
-    where: { agentId: null, quarter: "Q1-2026" },
-    include: { keyResults: true },
-  });
-
-  if (teamObjective) {
-    const [totalLeads, contactedLeads, proposalActions, wonLeads] = await Promise.all([
-      prisma.lead.count(),
-      prisma.lead.count({ where: { status: { in: ["contacted", "interested", "negotiating", "won"] } } }),
-      prisma.leadAction.count({ where: { type: { in: ["meeting", "qualification"] } } }),
-      prisma.lead.count({ where: { status: "won" } }),
-    ]);
-
-    for (const kr of teamObjective.keyResults) {
-      let newValue = 0;
-      if (kr.unit === "leads") newValue = Math.min(totalLeads, kr.targetValue);
-      else if (kr.unit === "reuniones") newValue = Math.min(contactedLeads, kr.targetValue);
-      else if (kr.unit === "propuestas") newValue = Math.min(proposalActions, kr.targetValue);
-      else if (kr.unit === "acuerdos") newValue = Math.min(wonLeads, kr.targetValue);
-
-      const progress = kr.targetValue > 0 ? Math.round((newValue / kr.targetValue) * 100) : 0;
-      await prisma.keyResult.update({
-        where: { id: kr.id },
-        data: { currentValue: newValue, progress },
+      onProgress({
+        type: "agent_done",
+        agent: { id: agent.id, name: agent.name, avatar: agent.avatar },
+        companiesFound: result.companies.length,
+        noMore: result.noMore,
       });
-    }
-
-    // Update objective progress as average of key results
-    const updatedKRs = await prisma.keyResult.findMany({ where: { objectiveId: teamObjective.id } });
-    const avgProgress = updatedKRs.length > 0
-      ? Math.round(updatedKRs.reduce((sum, kr) => sum + kr.progress, 0) / updatedKRs.length)
-      : 0;
-
-    await prisma.objective.update({
-      where: { id: teamObjective.id },
-      data: {
-        progress: avgProgress,
-        status: avgProgress >= 100 ? "completed" : avgProgress >= 70 ? "on_track" : avgProgress >= 40 ? "at_risk" : "behind",
-      },
-    });
-  }
-
-  // Update individual agent objectives based on KPI achievement
-  const agentObjectives = await prisma.objective.findMany({
-    where: { agentId: { not: null }, quarter: "Q1-2026" },
-    include: { keyResults: true },
-  });
-
-  for (const obj of agentObjectives) {
-    if (!obj.agentId) continue;
-
-    const agentKPIs = await prisma.kPI.findMany({ where: { agentId: obj.agentId } });
-    const avgKPIProgress = agentKPIs.length > 0
-      ? Math.round(
-          agentKPIs.reduce((sum, k) => sum + (k.targetValue > 0 ? Math.min((k.currentValue / k.targetValue) * 100, 100) : 0), 0)
-          / agentKPIs.length
-        )
-      : 0;
-
-    // Update key results for this objective
-    for (const kr of obj.keyResults) {
-      if (kr.unit === "%") {
-        await prisma.keyResult.update({
-          where: { id: kr.id },
-          data: { currentValue: avgKPIProgress, progress: avgKPIProgress },
-        });
-      }
-    }
-
-    await prisma.objective.update({
-      where: { id: obj.id },
-      data: {
-        progress: avgKPIProgress,
-        status: avgKPIProgress >= 100 ? "completed" : avgKPIProgress >= 70 ? "on_track" : avgKPIProgress >= 40 ? "at_risk" : "behind",
-      },
-    });
-  }
-
-  // Return overall completion status
-  const allObjectives = await prisma.objective.findMany({
-    where: { quarter: "Q1-2026" },
-    select: { progress: true, status: true },
-  });
-
-  const avgProgress = allObjectives.length > 0
-    ? Math.round(allObjectives.reduce((sum, o) => sum + o.progress, 0) / allObjectives.length)
-    : 0;
-
-  const allComplete = allObjectives.every((o) => o.status === "completed");
-
-  return { avgProgress, allComplete, totalObjectives: allObjectives.length };
-}
-
-export async function executeAllAgents(apiKey: string, customInstruction?: string) {
-  const agents = await prisma.agent.findMany({
-    where: { status: "active" },
-    orderBy: { createdAt: "asc" },
-  });
-
-  const results = [];
-  for (const agent of agents) {
-    try {
-      const result = await executeAgent(agent.id, apiKey, customInstruction);
-      results.push(result);
     } catch (err) {
-      results.push({
-        agent: { id: agent.id, name: agent.name, role: agent.role },
+      onProgress({
+        type: "agent_error",
+        agent: { id: agent.id, name: agent.name, avatar: agent.avatar },
         error: String(err),
       });
     }
   }
 
-  return results;
+  // Phase 2: Phone/email enrichment
+  if (phoneAgent) {
+    const leadsToEnrich = await prisma.lead.findMany({
+      where: { batch, status: "pending" },
+      take: 50,
+    });
+
+    if (leadsToEnrich.length > 0) {
+      onProgress({
+        type: "agent_start",
+        agent: { id: phoneAgent.id, name: phoneAgent.name, avatar: phoneAgent.avatar },
+        phase: "enrich_phones",
+      });
+
+      try {
+        const chunks = [];
+        for (let i = 0; i < leadsToEnrich.length; i += 15) {
+          chunks.push(leadsToEnrich.slice(i, i + 15));
+        }
+
+        for (const chunk of chunks) {
+          const enriched = await executeEnrichAgent(phoneAgent, apiKey, chunk);
+          for (const company of enriched) {
+            const lead = chunk.find(
+              (l) => l.companyName.toLowerCase() === company.companyName?.toLowerCase()
+            );
+            if (!lead) continue;
+
+            const updateData: any = {};
+            if (company.phones?.length) updateData.phones = JSON.stringify(company.phones);
+            if (company.emails?.length) updateData.emails = JSON.stringify(company.emails);
+            if (company.address) updateData.address = company.address;
+            if (company.googleMapsUrl) updateData.googleMapsUrl = company.googleMapsUrl;
+            if (company.website) updateData.website = company.website;
+            updateData.status = "enriched";
+
+            await prisma.lead.update({ where: { id: lead.id }, data: updateData });
+          }
+        }
+
+        await prisma.activityLog.create({
+          data: {
+            agentId: phoneAgent.id,
+            category: "enrichment",
+            action: `Enriquecidos ${leadsToEnrich.length} leads con teléfonos y emails`,
+          },
+        });
+
+        onProgress({
+          type: "agent_done",
+          agent: { id: phoneAgent.id, name: phoneAgent.name, avatar: phoneAgent.avatar },
+          companiesEnriched: leadsToEnrich.length,
+        });
+      } catch (err) {
+        onProgress({
+          type: "agent_error",
+          agent: { id: phoneAgent.id, name: phoneAgent.name, avatar: phoneAgent.avatar },
+          error: String(err),
+        });
+      }
+    }
+  }
+
+  // Phase 3: LinkedIn enrichment
+  if (linkedinAgent) {
+    const leadsToEnrich = await prisma.lead.findMany({
+      where: { batch, status: { in: ["pending", "enriched"] } },
+      take: 50,
+    });
+
+    if (leadsToEnrich.length > 0) {
+      onProgress({
+        type: "agent_start",
+        agent: { id: linkedinAgent.id, name: linkedinAgent.name, avatar: linkedinAgent.avatar },
+        phase: "enrich_linkedin",
+      });
+
+      try {
+        const chunks = [];
+        for (let i = 0; i < leadsToEnrich.length; i += 10) {
+          chunks.push(leadsToEnrich.slice(i, i + 10));
+        }
+
+        for (const chunk of chunks) {
+          const enriched = await executeEnrichAgent(linkedinAgent, apiKey, chunk);
+          for (const company of enriched) {
+            const lead = chunk.find(
+              (l) => l.companyName.toLowerCase() === company.companyName?.toLowerCase()
+            );
+            if (!lead) continue;
+
+            if (company.keyContacts?.length) {
+              await prisma.lead.update({
+                where: { id: lead.id },
+                data: {
+                  keyContacts: JSON.stringify(company.keyContacts),
+                  status: "complete",
+                },
+              });
+            }
+          }
+        }
+
+        await prisma.activityLog.create({
+          data: {
+            agentId: linkedinAgent.id,
+            category: "enrichment",
+            action: `Enriquecidos ${leadsToEnrich.length} leads con contactos LinkedIn`,
+          },
+        });
+
+        onProgress({
+          type: "agent_done",
+          agent: { id: linkedinAgent.id, name: linkedinAgent.name, avatar: linkedinAgent.avatar },
+          companiesEnriched: leadsToEnrich.length,
+        });
+      } catch (err) {
+        onProgress({
+          type: "agent_error",
+          agent: { id: linkedinAgent.id, name: linkedinAgent.name, avatar: linkedinAgent.avatar },
+          error: String(err),
+        });
+      }
+    }
+  }
+
+  const totalBatch = await prisma.lead.count({ where: { batch } });
+  const totalAll = await prisma.lead.count();
+
+  return { totalBatch, totalAll, noMoreResults };
 }

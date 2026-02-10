@@ -13,44 +13,43 @@ datasource db {
 model Agent {
   id          String   @id @default(uuid())
   name        String
-  role        String   // INVESTIGADOR_MERCADO | ESPECIALISTA_PRODUCTO | DESARROLLADOR_MERCADO | COMERCIAL | COORDINADOR
+  role        String
   description String
   avatar      String?
-  status      String   @default("active") // active | paused | offline
+  status      String   @default("active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   logs        ActivityLog[]
-  objectives  Objective[]
-  kpis        KPI[]
-  tasks       AgentTask[]
   leadActions LeadAction[]
 }
 
 // ============================================================
-// LEADS / PROSPECTOS
+// EMPRESAS / LEADS
 // ============================================================
 model Lead {
-  id            String   @id @default(uuid())
-  companyName   String
-  contactName   String?
-  contactEmail  String?
-  contactPhone  String?
-  position      String?  // cargo del contacto
-  industry      String?  // construcción, reformas, distribución, etc.
-  segment       String?  // constructor, distribuidor, instalador, arquitecto
-  region        String?
-  source        String?  // cómo se descubrió el lead
-  status        String   @default("new") // new | contacted | interested | negotiating | won | lost | discarded
-  priority      String   @default("medium") // low | medium | high | urgent
-  score         Int      @default(0) // 0-100 lead scoring
-  notes         String?
-  estimatedValue Float?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(uuid())
+  companyName     String
+  companyType     String?  // pequeño_distribuidor | gran_mayorista | gran_constructora | otro
+  address         String?
+  googleMapsUrl   String?
+  description     String?  // descripción de la empresa
+  website         String?
+  phones          String?  // JSON array de teléfonos
+  emails          String?  // JSON array de emails
+  keyContacts     String?  // JSON array [{name, position, linkedin, phone, email}]
+  region          String?
+  city            String?
+  country         String?
+  source          String?  // qué agente lo encontró
+  status          String   @default("pending") // pending | enriched | complete | no_data
+  score           Int      @default(0)
+  notes           String?
+  batch           Int      @default(1) // número de lote (1=primeros 50, 2=siguientes 50...)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  actions       LeadAction[]
-  scheduledCalls ScheduledCall[]
+  actions         LeadAction[]
 }
 
 // ============================================================
@@ -60,33 +59,13 @@ model LeadAction {
   id        String   @id @default(uuid())
   leadId    String
   agentId   String
-  type      String   // research | contact_attempt | email_sent | call_made | meeting | note | status_change | qualification
+  type      String
   summary   String
   details   String?
-  result    String?  // positive | neutral | negative
   createdAt DateTime @default(now())
 
   lead  Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
-}
-
-// ============================================================
-// LLAMADAS PROGRAMADAS
-// ============================================================
-model ScheduledCall {
-  id            String   @id @default(uuid())
-  leadId        String
-  scheduledAt   DateTime
-  duration      Int      @default(30) // minutos
-  purpose       String
-  status        String   @default("scheduled") // scheduled | completed | cancelled | rescheduled | no_show
-  notes         String?
-  outcome       String?
-  requestedBy   String?  // agentId que lo solicitó
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 }
 
 // ============================================================
@@ -95,81 +74,11 @@ model ScheduledCall {
 model ActivityLog {
   id        String   @id @default(uuid())
   agentId   String
-  category  String   // research | outreach | analysis | planning | reporting | system
+  category  String
   action    String
   details   String?
-  metadata  String?  // JSON string for extra data
+  metadata  String?
   createdAt DateTime @default(now())
-
-  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
-}
-
-// ============================================================
-// OKRs - OBJECTIVES & KEY RESULTS
-// ============================================================
-model Objective {
-  id          String   @id @default(uuid())
-  agentId     String?  // null = objetivo de equipo
-  title       String
-  description String?
-  quarter     String   // Q1-2026, Q2-2026, etc.
-  status      String   @default("on_track") // on_track | at_risk | behind | completed
-  progress    Float    @default(0) // 0-100
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  agent      Agent?     @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  keyResults KeyResult[]
-}
-
-model KeyResult {
-  id          String   @id @default(uuid())
-  objectiveId String
-  title       String
-  targetValue Float
-  currentValue Float   @default(0)
-  unit        String   // leads, calls, meetings, %, euros
-  progress    Float    @default(0) // 0-100
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  objective Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
-}
-
-// ============================================================
-// KPIs INDIVIDUALES
-// ============================================================
-model KPI {
-  id          String   @id @default(uuid())
-  agentId     String
-  name        String
-  category    String   // productivity | quality | conversion | engagement
-  targetValue Float
-  currentValue Float   @default(0)
-  unit        String
-  period      String   // weekly | monthly | quarterly
-  periodStart DateTime
-  periodEnd   DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
-}
-
-// ============================================================
-// TAREAS DE AGENTES
-// ============================================================
-model AgentTask {
-  id          String   @id @default(uuid())
-  agentId     String
-  title       String
-  description String?
-  status      String   @default("pending") // pending | in_progress | completed | blocked
-  priority    String   @default("medium")
-  dueDate     DateTime?
-  completedAt DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
 }
