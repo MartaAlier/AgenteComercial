@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 
 interface LeadRow {
   id: string;
@@ -14,6 +14,7 @@ interface LeadRow {
   emails: string | null;
   keyContacts: string | null;
   status: string;
+  confidence: string;
   batch: number;
 }
 
@@ -21,6 +22,7 @@ interface AgentEvent {
   type: string;
   agent?: { id: string; name: string; avatar: string; role?: string };
   phase?: string;
+  label?: string;
   companiesFound?: number;
   companiesEnriched?: number;
   error?: string;
@@ -30,6 +32,8 @@ interface AgentEvent {
 }
 
 type AppPhase = "loading" | "setup" | "searching" | "results";
+type SortKey = "companyName" | "companyType" | "batch" | "confidence";
+type SortDir = "asc" | "desc";
 
 const TYPE_LABELS: Record<string, string> = {
   pequeño_distribuidor: "Peq. Distribuidor",
@@ -38,6 +42,14 @@ const TYPE_LABELS: Record<string, string> = {
   otro: "Otro",
 };
 
+const TYPE_OPTIONS = [
+  { value: "", label: "Todos los tipos" },
+  { value: "pequeño_distribuidor", label: "Peq. Distribuidor" },
+  { value: "gran_mayorista", label: "Gran Mayorista" },
+  { value: "gran_constructora", label: "Gran Constructora" },
+  { value: "otro", label: "Otro" },
+];
+
 function parseJSON(str: string | null): any[] {
   if (!str) return [];
   try { return JSON.parse(str); } catch { return []; }
@@ -45,7 +57,6 @@ function parseJSON(str: string | null): any[] {
 
 export default function DashboardPage() {
   const [phase, setPhase] = useState<AppPhase>("loading");
-  const [apiKey, setApiKey] = useState("");
   const [hasEnvKey, setHasEnvKey] = useState(false);
   const [manualKey, setManualKey] = useState("");
 
@@ -54,26 +65,40 @@ export default function DashboardPage() {
 
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [events, setEvents] = useState<AgentEvent[]>([]);
+  const [currentPhaseLabel, setCurrentPhaseLabel] = useState("");
   const [currentBatch, setCurrentBatch] = useState(1);
   const [searching, setSearching] = useState(false);
   const [noMoreResults, setNoMoreResults] = useState(false);
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
-  const stopRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
+  // Filters & sort
+  const [searchText, setSearchText] = useState("");
+  const [filterType, setFilterType] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("batch");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  // Non-destructive init: only create agents if missing, check env key
   useEffect(() => {
     async function init() {
       try {
-        await fetch("/api/reset", { method: "POST" });
-        const configRes = await fetch("/api/config");
-        const config = await configRes.json();
-        if (config.hasApiKey) {
-          setApiKey(config.apiKey);
-          setHasEnvKey(true);
-        } else {
-          const stored = localStorage.getItem("anthropic_api_key");
-          if (stored) { setApiKey(stored); setManualKey(stored); }
+        const res = await fetch("/api/init", { method: "POST" });
+        const data = await res.json();
+        if (data.hasApiKey) setHasEnvKey(true);
+
+        // Load existing leads if any
+        const leadsRes = await fetch("/api/leads");
+        const leadsData = await leadsRes.json();
+        if (leadsData.length > 0) {
+          setLeads(leadsData);
+          const maxBatch = Math.max(...leadsData.map((l: LeadRow) => l.batch));
+          setCurrentBatch(maxBatch);
+          setPhase("results");
+          return;
         }
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error("Init error:", e);
+      }
       setPhase("setup");
     }
     init();
@@ -84,12 +109,59 @@ export default function DashboardPage() {
       const res = await fetch("/api/leads");
       const data = await res.json();
       setLeads(data);
-    } catch { /* ok */ }
+    } catch (e) {
+      console.error("Error loading leads:", e);
+    }
   }, []);
 
+  // Filtered + sorted leads
+  const filteredLeads = useMemo(() => {
+    let result = [...leads];
+
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase();
+      result = result.filter(
+        (l) =>
+          l.companyName.toLowerCase().includes(q) ||
+          (l.address || "").toLowerCase().includes(q) ||
+          (l.description || "").toLowerCase().includes(q)
+      );
+    }
+
+    if (filterType) {
+      result = result.filter((l) => l.companyType === filterType);
+    }
+
+    result.sort((a, b) => {
+      const aVal = a[sortKey] ?? "";
+      const bVal = b[sortKey] ?? "";
+      if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
+      return 0;
+    });
+
+    return result;
+  }, [leads, searchText, filterType, sortKey, sortDir]);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  function sortIcon(key: SortKey) {
+    if (sortKey !== key) return "↕";
+    return sortDir === "asc" ? "↑" : "↓";
+  }
+
   async function runBatch(batch: number) {
-    const key = apiKey || manualKey;
-    if (!key) { alert("Necesitas una API key de Anthropic."); return; }
+    if (!hasEnvKey && !manualKey) {
+      alert("Necesitas una API key de Anthropic.");
+      return;
+    }
 
     if (manualKey && !hasEnvKey) {
       localStorage.setItem("anthropic_api_key", manualKey);
@@ -98,13 +170,20 @@ export default function DashboardPage() {
     const location = city ? `${city}, ${country}` : country;
     setSearching(true);
     setEvents([]);
-    stopRef.current = false;
+    setCurrentPhaseLabel("");
+
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
+      const body: any = { location, batch };
+      if (!hasEnvKey) body.apiKey = manualKey;
+
       const res = await fetch("/api/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: key, location, batch }),
+        body: JSON.stringify(body),
+        signal: controller.signal,
       });
 
       const reader = res.body?.getReader();
@@ -124,20 +203,34 @@ export default function DashboardPage() {
           if (!line.startsWith("data: ")) continue;
           try {
             const event: AgentEvent = JSON.parse(line.slice(6));
-            setEvents((prev) => [...prev.slice(-30), event]);
+            setEvents((prev) => [...prev.slice(-40), event]);
+            if (event.type === "phase" && event.label) {
+              setCurrentPhaseLabel(event.label);
+            }
             if (event.type === "complete") {
               if (event.noMoreResults) setNoMoreResults(true);
             }
-          } catch { /* skip */ }
+          } catch { /* skip malformed */ }
         }
       }
-    } catch (err) {
-      setEvents((prev) => [...prev, { type: "error", error: String(err) }]);
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        setEvents((prev) => [...prev, { type: "info", error: "Búsqueda cancelada por el usuario." }]);
+      } else {
+        setEvents((prev) => [...prev, { type: "error", error: String(err) }]);
+      }
     }
 
+    abortRef.current = null;
     await loadLeads();
     setSearching(false);
     setPhase("results");
+  }
+
+  function cancelSearch() {
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
   }
 
   function startSearch() {
@@ -160,11 +253,14 @@ export default function DashboardPage() {
   }
 
   function startOver() {
+    if (!confirm("¿Estás seguro? Esto eliminará todos los leads actuales y empezará de cero.")) return;
     setPhase("loading");
     setLeads([]);
     setEvents([]);
     setNoMoreResults(false);
     setCurrentBatch(1);
+    setSearchText("");
+    setFilterType("");
     fetch("/api/reset", { method: "POST" }).then(() => setPhase("setup"));
   }
 
@@ -231,7 +327,7 @@ export default function DashboardPage() {
                 <input
                   type="password"
                   value={manualKey}
-                  onChange={(e) => { setManualKey(e.target.value); setApiKey(e.target.value); }}
+                  onChange={(e) => setManualKey(e.target.value)}
                   placeholder="sk-ant-api03-..."
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 />
@@ -240,13 +336,13 @@ export default function DashboardPage() {
 
             {hasEnvKey && (
               <div className="text-sm text-green-600 bg-green-50 px-4 py-3 rounded-xl">
-                API key configurada
+                API key configurada en el servidor
               </div>
             )}
 
             <button
               onClick={startSearch}
-              disabled={!apiKey && !manualKey}
+              disabled={!hasEnvKey && !manualKey}
               className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-40 text-lg font-semibold shadow-lg"
             >
               Buscar 50 empresas
@@ -259,20 +355,53 @@ export default function DashboardPage() {
 
   // ── SEARCHING (progress) ──
   if (phase === "searching" && searching) {
-    const lastEvent = events[events.length - 1];
     return (
       <div className="animate-fadeIn max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Buscando empresas...</h1>
-            <p className="text-gray-500 mt-1">{city ? `${city}, ${country}` : country} &middot; Lote #{currentBatch}</p>
+            <p className="text-gray-500 mt-1">
+              {city ? `${city}, ${country}` : country} &middot; Lote #{currentBatch}
+            </p>
+            {currentPhaseLabel && (
+              <p className="text-blue-600 font-medium mt-1 text-sm">{currentPhaseLabel}</p>
+            )}
           </div>
+          <button
+            onClick={cancelSearch}
+            className="px-5 py-2.5 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm font-medium"
+          >
+            Cancelar
+          </button>
+        </div>
+
+        {/* Phase progress bar */}
+        <div className="flex gap-2 mb-4">
+          {["Fase 1/3: Buscando empresas", "Fase 2/3: Buscando teléfonos y emails", "Fase 3/3: Buscando contactos LinkedIn"].map((label, i) => {
+            const isActive = currentPhaseLabel === label;
+            const phaseNum = i + 1;
+            const currentNum = currentPhaseLabel.match(/(\d)\/3/)?.[1];
+            const isDone = currentNum ? parseInt(currentNum) > phaseNum : false;
+            return (
+              <div
+                key={i}
+                className={`flex-1 h-2 rounded-full transition-all ${
+                  isDone ? "bg-green-500" : isActive ? "bg-blue-500 animate-pulse" : "bg-gray-200"
+                }`}
+              />
+            );
+          })}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 max-h-[60vh] overflow-y-auto space-y-2">
             {events.map((event, i) => (
               <div key={i} className="animate-fadeIn">
+                {event.type === "phase" && (
+                  <div className="py-2 text-sm font-semibold text-blue-700 border-b border-blue-100">
+                    {event.label}
+                  </div>
+                )}
                 {event.type === "agent_start" && (
                   <div className="flex items-center gap-3 py-2">
                     <span className="text-xl animate-pulse">{event.agent?.avatar}</span>
@@ -300,6 +429,9 @@ export default function DashboardPage() {
                     <span className="text-sm">{event.agent?.name} - Error: {event.error?.slice(0, 100)}</span>
                   </div>
                 )}
+                {event.type === "info" && (
+                  <div className="py-2 text-sm text-amber-600">{event.error}</div>
+                )}
                 {event.type === "complete" && (
                   <div className="py-3 text-center text-sm font-medium text-blue-600">
                     Lote completado: {event.totalBatch} empresas en este lote, {event.totalAll} en total
@@ -307,7 +439,7 @@ export default function DashboardPage() {
                 )}
               </div>
             ))}
-            {!lastEvent && (
+            {events.length === 0 && (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 <span className="ml-3 text-gray-500">Conectando con agentes...</span>
@@ -326,9 +458,13 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
-            {leads.length} empresas encontradas
+            {filteredLeads.length === leads.length
+              ? `${leads.length} empresas encontradas`
+              : `${filteredLeads.length} de ${leads.length} empresas`}
           </h1>
-          <p className="text-gray-500 text-sm">{city ? `${city}, ${country}` : country} &middot; {currentBatch} lote{currentBatch > 1 ? "s" : ""}</p>
+          <p className="text-gray-500 text-sm">
+            {city ? `${city}, ${country}` : country} &middot; {currentBatch} lote{currentBatch > 1 ? "s" : ""}
+          </p>
         </div>
         <div className="flex gap-3">
           <button
@@ -352,11 +488,33 @@ export default function DashboardPage() {
           )}
           <button
             onClick={startOver}
-            className="px-5 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 text-sm"
+            className="px-5 py-2.5 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm"
           >
             Nueva busqueda
           </button>
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-3 mb-4">
+        <input
+          type="text"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          placeholder="Buscar por nombre, dirección, descripción..."
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+        />
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          className="px-4 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+        >
+          {TYPE_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Table */}
@@ -366,17 +524,33 @@ export default function DashboardPage() {
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">#</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Empresa</th>
-                <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Tipo</th>
+                <th
+                  className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:text-blue-600"
+                  onClick={() => toggleSort("companyName")}
+                >
+                  Empresa {sortIcon("companyName")}
+                </th>
+                <th
+                  className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:text-blue-600"
+                  onClick={() => toggleSort("companyType")}
+                >
+                  Tipo {sortIcon("companyType")}
+                </th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Direccion</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Maps</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Descripcion</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Telefonos / Emails</th>
                 <th className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Contactos clave</th>
+                <th
+                  className="text-left px-4 py-3 font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:text-blue-600"
+                  onClick={() => toggleSort("confidence")}
+                >
+                  Fiabilidad {sortIcon("confidence")}
+                </th>
               </tr>
             </thead>
             <tbody>
-              {leads.map((lead, idx) => {
+              {filteredLeads.map((lead, idx) => {
                 const phones = parseJSON(lead.phones);
                 const emails = parseJSON(lead.emails);
                 const contacts = parseJSON(lead.keyContacts);
@@ -448,7 +622,7 @@ export default function DashboardPage() {
                         <div className="space-y-2">
                           {contacts.slice(0, isExpanded ? 100 : 2).map((c: any, i: number) => (
                             <div key={i} className="text-xs">
-                              <div className="font-medium text-gray-900">{c.name}</div>
+                              <div className="font-medium text-gray-900">{c.name || "(cargo)"}</div>
                               <div className="text-gray-500">{c.position}</div>
                               {c.linkedin && (
                                 <a
@@ -473,12 +647,28 @@ export default function DashboardPage() {
                         <span className="text-gray-400 text-xs">-</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 align-top">
+                      <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${
+                        lead.confidence === "high" ? "bg-green-50 text-green-700" :
+                        lead.confidence === "medium" ? "bg-yellow-50 text-yellow-700" :
+                        "bg-red-50 text-red-600"
+                      }`}>
+                        {lead.confidence === "high" ? "Alta" : lead.confidence === "medium" ? "Media" : "Baja"}
+                      </span>
+                    </td>
                   </tr>
                 );
               })}
+              {filteredLeads.length === 0 && leads.length > 0 && (
+                <tr>
+                  <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
+                    No se encontraron resultados con esos filtros.
+                  </td>
+                </tr>
+              )}
               {leads.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
                     No hay datos todavia. Inicia una busqueda.
                   </td>
                 </tr>

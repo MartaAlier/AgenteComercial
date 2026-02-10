@@ -12,8 +12,8 @@ datasource db {
 // ============================================================
 model Agent {
   id          String   @id @default(uuid())
-  name        String
-  role        String
+  name        String   @unique
+  role        String   @unique
   description String
   avatar      String?
   status      String   @default("active")
@@ -44,12 +44,20 @@ model Lead {
   source          String?  // qué agente lo encontró
   status          String   @default("pending") // pending | enriched | complete | no_data
   score           Int      @default(0)
+  verified        Boolean  @default(false) // true si los datos fueron verificados
+  confidence      String   @default("low") // low | medium | high
   notes           String?
-  batch           Int      @default(1) // número de lote (1=primeros 50, 2=siguientes 50...)
+  batch           Int      @default(1)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   actions         LeadAction[]
+
+  @@unique([companyName, city, country])
+  @@index([batch])
+  @@index([status])
+  @@index([city, country])
+  @@index([companyType])
 }
 
 // ============================================================
